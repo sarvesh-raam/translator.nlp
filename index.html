@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced NMT Translator | English-Hindi</title>
+    <link rel="stylesheet" href="static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="dark-theme">
+    <div class="glass-container">
+        <header>
+            <div class="logo">
+                <span class="logo-icon">A文</span>
+                <h1>Neural Translator <span>Pro</span></h1>
+            </div>
+            <div class="header-actions">
+                <div class="badge">Seq2Seq + Attention</div>
+            </div>
+        </header>
+
+        <main>
+            <div class="translator-section">
+                <div class="panel source-panel">
+                    <div class="panel-header">
+                        <span class="lang-label">English</span>
+                        <div class="actions">
+                            <button id="copy-source" class="action-btn">Copy</button>
+                        </div>
+                    </div>
+                    <textarea id="source-text" placeholder="Type English text here..."></textarea>
+                    <div class="char-count"><span id="curr-count">0</span>/30 tokens</div>
+                </div>
+
+                <div class="swap-action">
+                    <button id="swap-btn" class="swap-btn">🔄</button>
+                </div>
+
+                <div class="panel target-panel">
+                    <div class="panel-header">
+                        <span class="lang-label">Hindi</span>
+                        <div class="actions">
+                            <button id="speaker-btn" class="action-btn">🔊</button>
+                            <button id="copy-target" class="action-btn">Copy</button>
+                        </div>
+                    </div>
+                    <div id="target-text" class="translated-output">
+                        <p class="placeholder">Translation will appear here...</p>
+                    </div>
+                    <div id="loader" class="loader hidden">
+                        <div class="spinner"></div>
+                        <span>Encoding...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-section">
+                <div class="card viz-card">
+                    <h3>Attention Heatmap</h3>
+                    <p class="card-desc">Visualizing focus regions for each word</p>
+                    <div id="heatmap-container">
+                        <div class="empty-viz">Translate something to see the attention weights</div>
+                    </div>
+                </div>
+
+                <div class="card metrics-card">
+                    <h3>Training Performance</h3>
+                    <p class="card-desc">Model BLEU & Loss over 10 epochs</p>
+                    <canvas id="metricsChart"></canvas>
+                    <div class="stats-footer">
+                        <div class="stat">
+                            <span class="stat-val" id="final-bleu">--</span>
+                            <span class="stat-label">BLEU Score</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-val" id="final-loss">--</span>
+                            <span class="stat-label">Final Loss</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <div class="footer-content">
+                <p>Built with 🚀 & Neural Networks</p>
+                <div class="tech-stack">
+                    <span>TensorFlow</span>
+                    <span>FastAPI</span>
+                    <span>D3.js</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+tensorflow>=2.15.0
+fastapi
+uvicorn[standard]
+datasets
+nltk
+numpy
+pandas
+matplotlib
+seaborn
+sacrebleu
+indic-nlp-library
+morfessor
+jinja2
+python-multipart
