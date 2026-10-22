@@ -5,20 +5,15 @@ from fastapi.templating import Jinja2Templates
 import tensorflow as tf
 import os
 import pickle
-import numpy as np
-from model import Encoder, Decoder
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from config import DATA_DIR, MODELS_DIR, MAX_SEQ_LEN, UNITS, EMBEDDING_DIM
+from model import Encoder, Decoder, greedy_decode, ids_to_words
+from preprocess import clean_text, vocab_size
 
 app = FastAPI()
 
 # Mount static files (Fixes CSS/JS loading issues)
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Configuration
-DATA_DIR = "data"
-MODELS_DIR = "models"
-MAX_SEQ_LEN = 30
-UNITS = 256
-EMBEDDING_DIM = 256
 
 # Load tokenizers
 with open(os.path.join(DATA_DIR, 'en_tokenizer.pkl'), 'rb') as f:
@@ -26,60 +21,35 @@ with open(os.path.join(DATA_DIR, 'en_tokenizer.pkl'), 'rb') as f:
 with open(os.path.join(DATA_DIR, 'hi_tokenizer.pkl'), 'rb') as f:
     hi_tokenizer = pickle.load(f)
 
-vocab_inp_size = len(en_tokenizer.word_index) + 1
-vocab_tar_size = len(hi_tokenizer.word_index) + 1
+START_ID = hi_tokenizer.word_index['<start>']
+END_ID = hi_tokenizer.word_index['<end>']
 
 # Initialize models
-encoder = Encoder(vocab_inp_size, EMBEDDING_DIM, UNITS, 1)
-decoder = Decoder(vocab_tar_size, EMBEDDING_DIM, UNITS, 1)
+encoder = Encoder(vocab_size(en_tokenizer), EMBEDDING_DIM, UNITS, 1)
+decoder = Decoder(vocab_size(hi_tokenizer), EMBEDDING_DIM, UNITS, 1)
 
 # Load weights if they exist
-if os.path.exists(os.path.join(MODELS_DIR, 'encoder_weights.h5')):
+if os.path.exists(os.path.join(MODELS_DIR, 'encoder_weights.weights.h5')):
     # Building models first by calling them with a dummy input
-    dummy_input = tf.zeros((1, MAX_SEQ_LEN))
-    dummy_hidden = encoder.initialize_hidden_state()
-    enc_out, enc_hidden = encoder(dummy_input, dummy_hidden)
-    
-    dummy_dec_input = tf.expand_dims([hi_tokenizer.word_index['<start>']], 0)
-    decoder(dummy_dec_input, enc_hidden, enc_out)
-    
-    encoder.load_weights(os.path.join(MODELS_DIR, 'encoder_weights.h5'))
-    decoder.load_weights(os.path.join(MODELS_DIR, 'decoder_weights.h5'))
+    dummy_input = tf.zeros((1, MAX_SEQ_LEN), dtype=tf.int32)
+    enc_out, enc_hidden, enc_mask = encoder(dummy_input, encoder.initialize_hidden_state())
+    decoder(tf.constant([[START_ID]]), enc_hidden, enc_out, enc_mask)
+
+    encoder.load_weights(os.path.join(MODELS_DIR, 'encoder_weights.weights.h5'))
+    decoder.load_weights(os.path.join(MODELS_DIR, 'decoder_weights.weights.h5'))
     print("Model weights loaded successfully!")
 
 def evaluate(sentence):
-    attention_plot = np.zeros((MAX_SEQ_LEN, MAX_SEQ_LEN))
-    
-    sentence = sentence.lower().strip()
-    inputs = [en_tokenizer.word_index.get(i, 0) for i in sentence.split(' ')]
-    inputs = tf.keras.preprocessing.sequence.pad_sequences([inputs], maxlen=MAX_SEQ_LEN, padding='post')
-    inputs = tf.convert_to_tensor(inputs)
+    # Same cleaning as training, so punctuation and casing tokenize identically
+    sentence = clean_text(sentence)
+    inputs = pad_sequences(en_tokenizer.texts_to_sequences([sentence]), maxlen=MAX_SEQ_LEN,
+                           padding='post', truncating='post')
 
-    result = ''
-    hidden = [tf.zeros((1, UNITS))]
-    enc_out, enc_hidden = encoder(inputs, hidden)
+    ids, attention = greedy_decode(encoder, decoder, tf.constant(inputs), START_ID, END_ID, MAX_SEQ_LEN)
+    result = ' '.join(ids_to_words(ids[0], hi_tokenizer.index_word, END_ID))
 
-    dec_hidden = enc_hidden
-    dec_input = tf.expand_dims([hi_tokenizer.word_index['<start>']], 0)
-
-    for t in range(MAX_SEQ_LEN):
-        predictions, dec_hidden, attention_weights = decoder(dec_input, dec_hidden, enc_out)
-
-        # Storing the attention weights to plot later on
-        attention_weights = tf.reshape(attention_weights, (-1, ))
-        attention_plot[t] = attention_weights.numpy()
-
-        predicted_id = tf.argmax(predictions[0]).numpy()
-
-        if hi_tokenizer.index_word[predicted_id] == '<end>':
-            return result, sentence, attention_plot
-
-        result += hi_tokenizer.index_word[predicted_id] + ' '
-
-        # The predicted ID is fed back into the model
-        dec_input = tf.expand_dims([predicted_id], 0)
-
-    return result, sentence, attention_plot
+    # attention shape is (decoded_len, MAX_SEQ_LEN)
+    return result, sentence, attention[0]
 
 @app.get("/", response_class=HTMLResponse)
 async def read_index(request: Request):
@@ -96,18 +66,17 @@ async def translate_text(request: Request):
     
     # Format attention for D3.js heatmap
     # attention shape is (target_len, source_len)
-    source_tokens = original.split()
+    source_tokens = original.split()[:MAX_SEQ_LEN]
     target_tokens = translated.split()
-    
+
     heatmap_data = []
     for i, target_word in enumerate(target_tokens):
         for j, source_word in enumerate(source_tokens):
-            if j < MAX_SEQ_LEN:
-                heatmap_data.append({
-                    "source": source_word,
-                    "target": target_word,
-                    "weight": float(attention[i][j])
-                })
+            heatmap_data.append({
+                "source": source_word,
+                "target": target_word,
+                "weight": float(attention[i][j])
+            })
     
     return {
         "translated": translated,

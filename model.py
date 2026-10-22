@@ -12,9 +12,12 @@ class Encoder(tf.keras.Model):
                                    recurrent_initializer='glorot_uniform')
 
     def call(self, x, hidden):
+        # mask shape == (batch_size, max_length); False on padding (id 0)
+        mask = tf.math.not_equal(x, 0)
         x = self.embedding(x)
-        output, state = self.gru(x, initial_state=hidden)
-        return output, state
+        # With the mask the GRU skips padding, so state is taken at the last real token
+        output, state = self.gru(x, initial_state=hidden, mask=mask)
+        return output, state, mask
 
     def initialize_hidden_state(self):
         return tf.zeros((self.batch_sz, self.enc_units))
@@ -26,7 +29,7 @@ class BahdanauAttention(tf.keras.layers.Layer):
         self.W2 = tf.keras.layers.Dense(units)
         self.V = tf.keras.layers.Dense(1)
 
-    def call(self, query, values):
+    def call(self, query, values, values_mask=None):
         # query hidden state shape == (batch_size, hidden size)
         # query_with_time_axis shape == (batch_size, 1, hidden size)
         # values shape == (batch_size, max_len, hidden size)
@@ -38,6 +41,10 @@ class BahdanauAttention(tf.keras.layers.Layer):
         # the shape of the tensor before applying self.V is (batch_size, max_length, units)
         score = self.V(tf.nn.tanh(
             self.W1(query_with_time_axis) + self.W2(values)))
+
+        # Padding positions get ~zero attention weight
+        if values_mask is not None:
+            score += (1.0 - tf.cast(values_mask, score.dtype))[:, :, tf.newaxis] * -1e9
 
         # attention_weights shape == (batch_size, max_length, 1)
         attention_weights = tf.nn.softmax(score, axis=1)
@@ -63,9 +70,9 @@ class Decoder(tf.keras.Model):
         # used for attention
         self.attention = BahdanauAttention(self.dec_units)
 
-    def call(self, x, hidden, enc_output):
+    def call(self, x, hidden, enc_output, enc_mask=None):
         # enc_output shape == (batch_size, max_length, hidden_size)
-        context_vector, attention_weights = self.attention(hidden, enc_output)
+        context_vector, attention_weights = self.attention(hidden, enc_output, enc_mask)
 
         # x shape after passing through embedding == (batch_size, 1, embedding_dim)
         x = self.embedding(x)
@@ -83,3 +90,43 @@ class Decoder(tf.keras.Model):
         x = self.fc(output)
 
         return x, state, attention_weights
+
+def greedy_decode(encoder, decoder, inputs, start_id, end_id, max_len):
+    """Batched greedy decoding. Padding (id 0) is never emitted, and an immediate repeat of the
+    previous token falls back to the runner-up (avoids '. . . .'-style degenerate loops).
+    Returns numpy (ids, attention) shaped (batch, steps) and (batch, steps, source_len)."""
+    batch = tf.shape(inputs)[0]
+    enc_out, dec_hidden, enc_mask = encoder(inputs, tf.zeros((batch, encoder.enc_units)))
+
+    dec_input = tf.fill([batch, 1], start_id)
+    prev_id = tf.fill([batch], -1)
+    finished = tf.zeros([batch], dtype=tf.bool)
+    block_pad = tf.one_hot(0, decoder.fc.units, on_value=-1e9, off_value=0.0)
+
+    ids, attentions = [], []
+    for _ in range(max_len):
+        predictions, dec_hidden, attention_weights = decoder(dec_input, dec_hidden, enc_out, enc_mask)
+        top2 = tf.math.top_k(predictions + block_pad, k=2).indices
+        next_id = tf.where(tf.equal(top2[:, 0], prev_id), top2[:, 1], top2[:, 0])
+        next_id = tf.where(finished, tf.zeros_like(next_id), next_id)
+
+        ids.append(next_id)
+        attentions.append(attention_weights[:, :, 0])
+        finished = finished | tf.equal(next_id, end_id)
+        if bool(tf.reduce_all(finished)):
+            break
+
+        prev_id = next_id
+        dec_input = tf.expand_dims(next_id, 1)
+
+    return tf.stack(ids, axis=1).numpy(), tf.stack(attentions, axis=1).numpy()
+
+def ids_to_words(ids, index_word, end_id):
+    """Map decoded ids to words, stopping at <end> or padding."""
+    words = []
+    for idx in ids:
+        idx = int(idx)
+        if idx in (0, end_id):
+            break
+        words.append(index_word.get(idx, '<unk>'))
+    return words

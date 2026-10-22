@@ -1,11 +1,24 @@
+---
+title: translator.nlp
+emoji: 🌍
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+---
+
 # translator.nlp 🌍
 
 An advanced Neural Machine Translation (NMT) system for English-Hindi translation built with deep learning and modern web technologies. This project implements a Sequence-to-Sequence (Seq2Seq) architecture enhanced with Bahdanau Attention to achieve high-quality bilingual translation.
 
+> 🔗 **Live demo**: _(add Hugging Face Spaces link here after deploying)_
+
 ## 🚀 Features
 
-- **Neural Architecture**: LSTM-based Encoder-Decoder with Bahdanau Attention.
-- **Advanced Decoding**: Implements Beam Search for superior translation quality.
+- **Neural Architecture**: GRU-based Encoder-Decoder with Bahdanau Attention.
+- **Decoding**: Greedy (argmax) decoding at each timestep.
 - **Interactive Visualization**: Real-time D3.js heatmap showing attention weights (how the model "focuses" on specific words).
 - **Modern Backend**: High-performance FastAPI server for model inference.
 - **Premium UI**: Glassmorphism design with real-time translation and training dashboards.
@@ -17,9 +30,9 @@ The system uses a neural network that encodes the source English sentence into a
 
 ```mermaid
 graph LR
-    A[English Input] --> B[Encoder LSTM]
+    A[English Input] --> B[Encoder GRU]
     B --> C[Attention Layer]
-    C --> D[Decoder LSTM]
+    C --> D[Decoder GRU]
     D --> E[Hindi Output]
 ```
 
@@ -39,8 +52,10 @@ graph LR
    cd translator.nlp
    ```
 
-2. **Install dependencies**:
+2. **Install dependencies** (recommended inside a virtual environment):
    ```bash
+   python -m venv .venv
+   .venv\Scripts\activate   # Windows; use `source .venv/bin/activate` on macOS/Linux
    pip install -r requirements.txt
    ```
 
@@ -58,7 +73,7 @@ graph LR
 
 ## 📊 Evaluation
 
-- **BLEU Score**: ~32.45 (Standard benchmark)
+- **BLEU Score**: computed on a held-out validation split (never seen during training) via `sacrebleu` at the end of `train.py`, and served live from `/metrics`.
 - **Loss Curve**: Visualized in the training dashboard.
 
 ## 🏷️ Topics
