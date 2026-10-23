@@ -3,95 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced NMT Translator | English-Hindi</title>
+    <title>translator.nlp · English to Hindi</title>
+    <meta name="description" content="An English to Hindi neural translator: a GRU encoder-decoder with Bahdanau attention, trained on the IIT Bombay corpus.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Serif+Devanagari:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="static/css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
-<body class="dark-theme">
-    <div class="glass-container">
-        <header>
-            <div class="logo">
-                <span class="logo-icon">A文</span>
-                <h1>Neural Translator <span>Pro</span></h1>
+<body>
+    <div class="page">
+        <header class="masthead">
+            <div>
+                <h1>translator<span class="dot">.</span>nlp</h1>
+                <p class="subtitle">English to Hindi, with a GRU encoder&ndash;decoder and Bahdanau attention</p>
             </div>
-            <div class="header-actions">
-                <div class="badge">Seq2Seq + Attention</div>
-            </div>
+            <a class="masthead-link" href="https://github.com/sarvesh-raam/translator.nlp" target="_blank" rel="noopener">Source on GitHub</a>
         </header>
 
         <main>
-            <div class="translator-section">
-                <div class="panel source-panel">
-                    <div class="panel-header">
-                        <span class="lang-label">English</span>
-                        <div class="actions">
-                            <button id="copy-source" class="action-btn">Copy</button>
-                        </div>
+            <section class="translator" aria-label="Translator">
+                <div class="side">
+                    <div class="side-head">
+                        <span class="label">English</span>
+                        <span class="meta"><span id="curr-count">0</span> / 30 words</span>
                     </div>
-                    <textarea id="source-text" placeholder="Type English text here..."></textarea>
-                    <div class="char-count"><span id="curr-count">0</span>/30 tokens</div>
+                    <textarea id="source-text" placeholder="Type a sentence in English&hellip;" spellcheck="false" autofocus></textarea>
+                    <div class="side-foot">
+                        <button id="copy-source" class="text-btn" type="button">Copy</button>
+                    </div>
                 </div>
 
-                <div class="swap-action">
-                    <button id="swap-btn" class="swap-btn">🔄</button>
+                <div class="side side-target">
+                    <div class="side-head">
+                        <span class="label">Hindi</span>
+                        <span id="loader" class="meta status hidden">translating&hellip;</span>
+                    </div>
+                    <div id="target-text" class="translated-output" lang="hi" aria-live="polite">
+                        <p class="placeholder">अनुवाद यहाँ दिखेगा</p>
+                    </div>
+                    <div class="side-foot">
+                        <button id="speaker-btn" class="text-btn" type="button">Listen</button>
+                        <button id="copy-target" class="text-btn" type="button">Copy</button>
+                    </div>
                 </div>
+            </section>
 
-                <div class="panel target-panel">
-                    <div class="panel-header">
-                        <span class="lang-label">Hindi</span>
-                        <div class="actions">
-                            <button id="speaker-btn" class="action-btn">🔊</button>
-                            <button id="copy-target" class="action-btn">Copy</button>
-                        </div>
-                    </div>
-                    <div id="target-text" class="translated-output">
-                        <p class="placeholder">Translation will appear here...</p>
-                    </div>
-                    <div id="loader" class="loader hidden">
-                        <div class="spinner"></div>
-                        <span>Encoding...</span>
-                    </div>
-                </div>
+            <div class="examples">
+                <span class="examples-label">Try</span>
+                <button class="example" type="button">What is your name?</button>
+                <button class="example" type="button">I am going to the market.</button>
+                <button class="example" type="button">The government has announced a new scheme for farmers.</button>
+                <button class="example" type="button">This is a good book.</button>
             </div>
 
-            <div class="dashboard-section">
-                <div class="card viz-card">
-                    <h3>Attention Heatmap</h3>
-                    <p class="card-desc">Visualizing focus regions for each word</p>
-                    <div id="heatmap-container">
-                        <div class="empty-viz">Translate something to see the attention weights</div>
-                    </div>
-                </div>
+            <p class="note">
+                Works best on short, formal sentences like the news and government text it was trained on.
+                Words outside its 30,000-word vocabulary, such as most names, come out as <code>&lt;unk&gt;</code>.
+            </p>
 
-                <div class="card metrics-card">
-                    <h3>Training Performance</h3>
-                    <p class="card-desc" id="metrics-desc">Training loss & validation BLEU</p>
+            <section class="figure" aria-labelledby="attention-title">
+                <div class="figure-head">
+                    <h2 id="attention-title"><span class="fig-num">Fig. 1</span> Where the model looked</h2>
+                    <p class="caption">Each row is a Hindi word the model wrote; darker cells mark the English words it attended to while writing it.</p>
+                </div>
+                <div id="heatmap-container">
+                    <div class="empty-viz">Translate a sentence to see its attention map.</div>
+                </div>
+            </section>
+
+            <section class="figure" aria-labelledby="training-title">
+                <div class="figure-head">
+                    <h2 id="training-title"><span class="fig-num">Fig. 2</span> Training</h2>
+                    <p class="caption" id="metrics-desc">Training loss and validation BLEU per epoch.</p>
+                </div>
+                <dl class="stats">
+                    <div class="stat">
+                        <dt>Test BLEU</dt>
+                        <dd id="final-bleu">&ndash;</dd>
+                    </div>
+                    <div class="stat">
+                        <dt>Best validation BLEU</dt>
+                        <dd id="best-val-bleu">&ndash;</dd>
+                    </div>
+                    <div class="stat">
+                        <dt>Epochs</dt>
+                        <dd id="epoch-count">&ndash;</dd>
+                    </div>
+                    <div class="stat">
+                        <dt>Final loss</dt>
+                        <dd id="final-loss">&ndash;</dd>
+                    </div>
+                </dl>
+                <div class="chart-wrap">
                     <canvas id="metricsChart"></canvas>
-                    <div class="stats-footer">
-                        <div class="stat">
-                            <span class="stat-val" id="final-bleu">--</span>
-                            <span class="stat-label">Test BLEU</span>
-                        </div>
-                        <div class="stat">
-                            <span class="stat-val" id="final-loss">--</span>
-                            <span class="stat-label">Final Loss</span>
-                        </div>
-                    </div>
                 </div>
-            </div>
+            </section>
         </main>
 
-        <footer>
-            <div class="footer-content">
-                <p>Built with 🚀 & Neural Networks</p>
-                <div class="tech-stack">
-                    <span>TensorFlow</span>
-                    <span>FastAPI</span>
-                    <span>D3.js</span>
-                </div>
-            </div>
+        <footer class="colophon">
+            <p>Trained on 500,000 sentence pairs from the IIT Bombay English&ndash;Hindi corpus. BLEU is measured with sacreBLEU on the corpus&rsquo; official test set, which the model never saw during training.</p>
         </footer>
     </div>
 

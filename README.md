@@ -21,7 +21,7 @@ An advanced Neural Machine Translation (NMT) system for English-Hindi translatio
 - **Decoding**: Beam search (beam size 5, length-normalised), which raised test BLEU from 4.29 (greedy) to 6.70.
 - **Interactive Visualization**: Real-time D3.js heatmap showing attention weights (how the model "focuses" on specific words).
 - **Modern Backend**: High-performance FastAPI server for model inference.
-- **Premium UI**: Glassmorphism design with real-time translation and training dashboards.
+- **Web UI**: Translates as you type, with example sentences, an attention map for every translation and the real training curves; works on phones and in dark mode.
 - **Open Dataset**: Trained on a subset of the industry-standard IIT Bombay English-Hindi Corpus.
 
 ## 🧠 Architecture Overview
@@ -41,7 +41,7 @@ graph LR
 - **Deep Learning**: TensorFlow / Keras
 - **NLP Utilities**: NLTK, Indic NLP Library
 - **Backend API**: FastAPI, Uvicorn
-- **Frontend**: D3.js (Visualizations), Chart.js (Metrics), HTML5/CSS3 (Glassmorphism)
+- **Frontend**: D3.js (Visualizations), Chart.js (Metrics), plain HTML/CSS
 - **Data Science**: NumPy, Pandas, Scikit-learn, SacreBLEU
 
 ## ⚙️ Setup & Installation
