@@ -60,22 +60,27 @@ document.addEventListener('DOMContentLoaded', () => {
             .append("g")
             .attr("transform", `translate(${margin.left},${margin.top})`);
 
-        const sources = Array.from(new Set(data.map(d => d.source)));
-        const targets = Array.from(new Set(data.map(d => d.target)));
+        // Bands are word positions, not words, so a repeated word gets its own row/column
+        const sourceWords = [], targetWords = [];
+        data.forEach(d => {
+            sourceWords[d.source_index] = d.source;
+            targetWords[d.target_index] = d.target;
+        });
 
-        const x = d3.scaleBand().range([0, width]).domain(sources).padding(0.05);
-        const y = d3.scaleBand().range([height, 0]).domain(targets).padding(0.05);
+        const x = d3.scaleBand().range([0, width]).domain(d3.range(sourceWords.length)).padding(0.05);
+        // First output word on top, so rows read in translation order
+        const y = d3.scaleBand().range([0, height]).domain(d3.range(targetWords.length)).padding(0.05);
 
         const colorScale = d3.scaleSequential()
             .interpolator(d3.interpolatePurples)
             .domain([0, 1]);
 
         svg.selectAll()
-            .data(data, d => d.source + ':' + d.target)
+            .data(data, d => d.source_index + ':' + d.target_index)
             .enter()
             .append("rect")
-            .attr("x", d => x(d.source))
-            .attr("y", d => y(d.target))
+            .attr("x", d => x(d.source_index))
+            .attr("y", d => y(d.target_index))
             .attr("width", x.bandwidth())
             .attr("height", y.bandwidth())
             .style("fill", d => colorScale(d.weight))
@@ -86,11 +91,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Add axes
         svg.append("g")
             .attr("transform", `translate(0, ${height})`)
-            .call(d3.axisBottom(x).tickSize(0))
+            .call(d3.axisBottom(x).tickSize(0).tickFormat(i => sourceWords[i]))
             .select(".domain").remove();
 
         svg.append("g")
-            .call(d3.axisLeft(y).tickSize(0))
+            .call(d3.axisLeft(y).tickSize(0).tickFormat(i => targetWords[i]))
             .select(".domain").remove();
     }
 
@@ -101,31 +106,50 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             
             document.getElementById('final-bleu').innerText = data.bleu;
-            document.getElementById('final-loss').innerText = data.training_history.loss.slice(-1)[0];
+            const history = data.training_history;
+            document.getElementById('final-loss').innerText = history.loss.slice(-1)[0].toFixed(2);
+            document.getElementById('metrics-desc').innerText =
+                `Training loss & validation BLEU over ${history.epochs.length} epochs`;
+
+            const datasets = [{
+                label: 'Training Loss',
+                data: history.loss,
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                fill: true,
+                tension: 0.4,
+                yAxisID: 'y'
+            }];
+            if (history.val_bleu) {
+                datasets.push({
+                    label: 'Validation BLEU',
+                    data: history.val_bleu,
+                    borderColor: '#22d3ee',
+                    backgroundColor: 'transparent',
+                    tension: 0.4,
+                    yAxisID: 'y1'
+                });
+            }
 
             const ctx = document.getElementById('metricsChart').getContext('2d');
             new Chart(ctx, {
                 type: 'line',
-                data: {
-                    labels: data.training_history.epochs,
-                    datasets: [{
-                        label: 'Training Loss',
-                        data: data.training_history.loss,
-                        borderColor: '#6366f1',
-                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
+                data: { labels: history.epochs, datasets },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: { legend: { display: datasets.length > 1, labels: { color: '#94a3b8', boxWidth: 12 } } },
                     scales: {
                         x: { display: false },
-                        y: { 
+                        y: {
                             grid: { color: 'rgba(255,255,255,0.05)' },
                             ticks: { color: '#94a3b8' }
+                        },
+                        y1: {
+                            display: datasets.length > 1,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: '#22d3ee' }
                         }
                     }
                 }

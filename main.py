@@ -45,9 +45,12 @@ async def translate_text(request: Request):
     heatmap_data = []
     for i, target_word in enumerate(target_tokens):
         for j, source_word in enumerate(source_tokens):
+            # Positions keep repeated words apart in the heatmap
             heatmap_data.append({
                 "source": source_word,
                 "target": target_word,
+                "source_index": j,
+                "target_index": i,
                 "weight": float(attention[i][j])
             })
     

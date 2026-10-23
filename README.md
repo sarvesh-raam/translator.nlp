@@ -13,7 +13,7 @@ license: mit
 
 An advanced Neural Machine Translation (NMT) system for English-Hindi translation built with deep learning and modern web technologies. This project implements a Sequence-to-Sequence (Seq2Seq) architecture enhanced with Bahdanau Attention to achieve high-quality bilingual translation.
 
-> 🔗 **Live demo**: _(add Hugging Face Spaces link here after deploying)_
+> 🔗 **Live demo**: https://translator-nlp.onrender.com (free hosting: the first visit after a quiet spell can take up to a minute to wake up)
 
 ## 🚀 Features
 
