@@ -34,7 +34,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             
             if (data.translated) {
-                targetText.innerHTML = `<p>${data.translated}</p>`;
+                // As text, not HTML: the model's "<unk>" token would otherwise be parsed as a tag and vanish
+                const p = document.createElement('p');
+                p.textContent = data.translated;
+                targetText.replaceChildren(p);
                 renderHeatmap(data.heatmap);
             }
         } catch (err) {

@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+import hashlib
 import os
 import pickle
 from config import DATA_DIR, MAX_SEQ_LEN
@@ -24,9 +25,22 @@ def evaluate(sentence):
     # attention shape is (decoded_len, source_len)
     return result, sentence, attention
 
+def versioned_index():
+    """index.html with a content hash on the CSS/JS links, so browsers fetch them again after
+    every change instead of reusing a stale cached copy."""
+    html = open("index.html", "r", encoding="utf-8").read()
+    for asset in ("static/css/style.css", "static/js/app.js"):
+        with open(asset, "rb") as f:
+            version = hashlib.md5(f.read()).hexdigest()[:8]
+        html = html.replace(f'"{asset}"', f'"{asset}?v={version}"')
+    return html
+
+INDEX_HTML = versioned_index()
+
 @app.get("/", response_class=HTMLResponse)
 async def read_index(request: Request):
-    return open("index.html", "r", encoding="utf-8").read()
+    # The page itself is always revalidated, so it always points at the current asset versions
+    return HTMLResponse(INDEX_HTML, headers={"Cache-Control": "no-cache"})
 
 @app.post("/translate")
 async def translate_text(request: Request):
