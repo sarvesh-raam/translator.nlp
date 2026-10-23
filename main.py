@@ -7,7 +7,7 @@ import os
 import pickle
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from config import DATA_DIR, MODELS_DIR, MAX_SEQ_LEN, UNITS, EMBEDDING_DIM
-from model import Encoder, Decoder, greedy_decode, ids_to_words
+from model import Encoder, Decoder, beam_search_decode, ids_to_words
 from preprocess import clean_text, vocab_size
 
 app = FastAPI()
@@ -31,7 +31,8 @@ decoder = Decoder(vocab_size(hi_tokenizer), EMBEDDING_DIM, UNITS, 1)
 # Load weights if they exist
 if os.path.exists(os.path.join(MODELS_DIR, 'encoder_weights.weights.h5')):
     # Building models first by calling them with a dummy input
-    dummy_input = tf.zeros((1, MAX_SEQ_LEN), dtype=tf.int32)
+    # Non-zero ids: cuDNN's GRU rejects an all-padding (fully masked) sequence
+    dummy_input = tf.ones((1, MAX_SEQ_LEN), dtype=tf.int32)
     enc_out, enc_hidden, enc_mask = encoder(dummy_input, encoder.initialize_hidden_state())
     decoder(tf.constant([[START_ID]]), enc_hidden, enc_out, enc_mask)
 
@@ -45,7 +46,7 @@ def evaluate(sentence):
     inputs = pad_sequences(en_tokenizer.texts_to_sequences([sentence]), maxlen=MAX_SEQ_LEN,
                            padding='post', truncating='post')
 
-    ids, attention = greedy_decode(encoder, decoder, tf.constant(inputs), START_ID, END_ID, MAX_SEQ_LEN)
+    ids, attention = beam_search_decode(encoder, decoder, tf.constant(inputs), START_ID, END_ID, MAX_SEQ_LEN)
     result = ' '.join(ids_to_words(ids[0], hi_tokenizer.index_word, END_ID))
 
     # attention shape is (decoded_len, MAX_SEQ_LEN)

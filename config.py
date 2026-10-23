@@ -8,3 +8,4 @@ MODELS_DIR = os.environ.get("NMT_MODELS_DIR", "models")
 MAX_SEQ_LEN = 30
 EMBEDDING_DIM = 256
 UNITS = 256
+DROPOUT = 0.3

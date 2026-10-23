@@ -7,3 +7,9 @@ env/
 .env
 .DS_Store
 Thumbs.db
+
+# Training leftovers (resume checkpoints, old model backups, transfer archives)
+models/checkpoints/
+models_old/
+data_old/
+*.zip

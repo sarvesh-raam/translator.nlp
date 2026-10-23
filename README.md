@@ -18,7 +18,7 @@ An advanced Neural Machine Translation (NMT) system for English-Hindi translatio
 ## 🚀 Features
 
 - **Neural Architecture**: GRU-based Encoder-Decoder with Bahdanau Attention.
-- **Decoding**: Greedy (argmax) decoding at each timestep.
+- **Decoding**: Beam search (beam size 5, length-normalised), which raised test BLEU from 4.29 (greedy) to 6.70.
 - **Interactive Visualization**: Real-time D3.js heatmap showing attention weights (how the model "focuses" on specific words).
 - **Modern Backend**: High-performance FastAPI server for model inference.
 - **Premium UI**: Glassmorphism design with real-time translation and training dashboards.
