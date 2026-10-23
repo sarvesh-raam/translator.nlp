@@ -1,0 +1,5 @@
+# Only what the web server needs (inference runs in NumPy, see inference.py).
+# Training and preprocessing use requirements.txt.
+fastapi==0.141.1
+uvicorn==0.52.1
+numpy==2.5.2

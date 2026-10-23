@@ -1,56 +1,28 @@
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-import tensorflow as tf
 import os
 import pickle
-from tensorflow.keras.preprocessing.sequence import pad_sequences
-from config import DATA_DIR, MODELS_DIR, MAX_SEQ_LEN, UNITS, EMBEDDING_DIM
-from model import Encoder, Decoder, beam_search_decode, ids_to_words
-from preprocess import clean_text, vocab_size
+from config import DATA_DIR, MAX_SEQ_LEN
+from inference import Translator
+from preprocess import clean_text
 
 app = FastAPI()
 
 # Mount static files (Fixes CSS/JS loading issues)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Load tokenizers
-with open(os.path.join(DATA_DIR, 'en_tokenizer.pkl'), 'rb') as f:
-    en_tokenizer = pickle.load(f)
-with open(os.path.join(DATA_DIR, 'hi_tokenizer.pkl'), 'rb') as f:
-    hi_tokenizer = pickle.load(f)
-
-START_ID = hi_tokenizer.word_index['<start>']
-END_ID = hi_tokenizer.word_index['<end>']
-
-# Initialize models
-encoder = Encoder(vocab_size(en_tokenizer), EMBEDDING_DIM, UNITS, 1)
-decoder = Decoder(vocab_size(hi_tokenizer), EMBEDDING_DIM, UNITS, 1)
-
-# Load weights if they exist
-if os.path.exists(os.path.join(MODELS_DIR, 'encoder_weights.weights.h5')):
-    # Building models first by calling them with a dummy input
-    # Non-zero ids: cuDNN's GRU rejects an all-padding (fully masked) sequence
-    dummy_input = tf.ones((1, MAX_SEQ_LEN), dtype=tf.int32)
-    enc_out, enc_hidden, enc_mask = encoder(dummy_input, encoder.initialize_hidden_state())
-    decoder(tf.constant([[START_ID]]), enc_hidden, enc_out, enc_mask)
-
-    encoder.load_weights(os.path.join(MODELS_DIR, 'encoder_weights.weights.h5'))
-    decoder.load_weights(os.path.join(MODELS_DIR, 'decoder_weights.weights.h5'))
-    print("Model weights loaded successfully!")
+# NumPy port of the trained model (see export_numpy.py), so the server doesn't need TensorFlow
+translator = Translator()
+print("Model weights loaded successfully!")
 
 def evaluate(sentence):
     # Same cleaning as training, so punctuation and casing tokenize identically
     sentence = clean_text(sentence)
-    inputs = pad_sequences(en_tokenizer.texts_to_sequences([sentence]), maxlen=MAX_SEQ_LEN,
-                           padding='post', truncating='post')
+    result, attention = translator.translate(sentence)
 
-    ids, attention = beam_search_decode(encoder, decoder, tf.constant(inputs), START_ID, END_ID, MAX_SEQ_LEN)
-    result = ' '.join(ids_to_words(ids[0], hi_tokenizer.index_word, END_ID))
-
-    # attention shape is (decoded_len, MAX_SEQ_LEN)
-    return result, sentence, attention[0]
+    # attention shape is (decoded_len, source_len)
+    return result, sentence, attention
 
 @app.get("/", response_class=HTMLResponse)
 async def read_index(request: Request):

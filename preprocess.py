@@ -4,8 +4,6 @@ import json
 import random
 import numpy as np
 import pickle
-from tensorflow.keras.preprocessing.text import Tokenizer
-from tensorflow.keras.preprocessing.sequence import pad_sequences
 from config import DATA_DIR, MAX_SEQ_LEN
 
 # Configuration
@@ -46,7 +44,10 @@ def clean_pairs(rows):
     return pairs
 
 def preprocess_and_save():
-    from datasets import load_dataset  # Only needed here, keeps clean_text importable by the server
+    # Only needed here, keeps clean_text importable by the TensorFlow-free server
+    from datasets import load_dataset
+    from tensorflow.keras.preprocessing.text import Tokenizer
+    from tensorflow.keras.preprocessing.sequence import pad_sequences
 
     print("Loading the IIT Bombay English-Hindi corpus...")
     corpus = load_dataset("cfilt/iitb-english-hindi")
